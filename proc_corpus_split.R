@@ -2,12 +2,14 @@
 ## Project	: Module 10 / Capstone - Text Prediction
 ## Function     : proc_corpus_split()
 ## Author	: Paul Ringsted
-## Date		: 2018-02-28
+## Date		: 2019-02-28
 ## Description  : Randomly breaks up the 3 Corpus files into 10 files ./corpus_split/corpusN.txt N=0:9
 ##		  Does not perform any cleanup, this will be taken care of in quanteda
 #################################################################################################
 
 proc_corpus_split <- function() {
+		
+	set.seed(5678)
 	
 	con1 <- file("./corpus_split/corpus1.txt", open = "w")
 	con2 <- file("./corpus_split/corpus2.txt", open = "w")
