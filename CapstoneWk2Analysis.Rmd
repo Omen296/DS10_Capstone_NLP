@@ -1,10 +1,20 @@
 ---
 title: "Data Science Capstone Project"
-subtitle: "Week 2 Project - Exploratory Analysis / Status"
+subtitle: "Week 2 - Exploratory Analysis & Initial N-Gram Model"
 author: "Paul Ringsted"
-date: "27th February 2019"
-output: html_document
+date: "2nd March 2019"
+output:
+        html_document:
+                toc: yes
+                toc_depth: 2
+                number_sections: true
+                theme: flatly
 ---
+
+<style>
+body {
+text-align: justify}
+</style>
 
 ```{r setup, include=FALSE}
 library(knitr)
@@ -18,28 +28,48 @@ library(readtext)
 library(kableExtra)
 library(parallel)
 library(ggplot2)
+library(scales)
 library(data.table)
+library(stringr)
+options(knitr.kable.NA = '')
 ```
 
-## Synopsis
+<br>
 
-The goal of this project is to create a text prediction model/algorithm and shiny app demonstrator to perform text prediction, using a corpus of 3 documents as a source for training data - extracts from blogs, news and twitter.
+# Synopsis
 
-At this stage the thinking is this model will utilize a pre-processed population of n-grams and "backoff" methodology to perform a lookup based on text entered so far, using the last n-1 words to lookup the most frequent (hence, most likely) n-gram to predict the nth word.  If no match can be found, the process is repeated with the next shortest n-gram and so forth.  It is not clear what the optimal value of 'n' will be to balance performance vs. accuracy, at this stage of the analysis we examine the distribution of bigrams and trigrams (n=2,3).
+The goal of this project is to create a text prediction model/algorithm and shiny app demonstrator to perform text prediction, using a "corpus" of 3 documents as a source for training data - extracts from blogs, news and twitter.
 
-The main technical challenge and overhead of this project appears to be the volume of data provided in the corpus which will generate a large number of n-grams and will be difficult to process on non-enterprise hardware.  This potentially leads to a question of how much data is required to give sufficient coverage for the model.
+This prediction model will likely utilize a pre-processed population of N-grams to perform a lookup based on text entered so far; the last N-1 words would be used to lookup the most frequent (hence, most likely) N-gram to predict the Nth word.  If no match can be found, the process is repeated with the next shortest N-gram and so forth.  
 
-Throughout this project we will make use of the quanteda package which provides fast multi-threaded tokenization of the source data.
+In this report we present:
 
-### References
+1. Analysis of line/word counts of the entire corpus (using a Document Feature Matrix) and examination of prevalence of stopwords (the, and etc).
+2. Analysis of the distribution of N-grams up to N=5 for a random 10% sample of the Corpus.
+3. A basic model for ranking and predicting N-grams, along with examples.
 
-Kudos to the following references for providing invaluable guidance getting started with this project:
+The main technical challenge of this project is the volume of data provided in the corpus which will generate a large number of N-grams and will be difficult to process on non-enterprise hardware.  Determining the optimal value of 'N', and the most efficient data structures and algorithm, will follow in next stages of the project.  However this initial analysis yielded some ideas to improve performance, for further exploration:
+
+* Reduce the population of N-gram predictions to just cover the small population (<1%) of words which account for 90% of the words in the corpus.
+* Reduce the population of N-gram predictions by either reducing N, or discarding the population of low frequency (less likely) N-grams which grows larger as N increases.
+* Representation of N-grams as lookups/hash tables to reduce redundancy in the data tables and improve performance, both during pre-processing and application runtime.
+
+Throughout this project we will make use of the quanteda package which provides fast multi-threaded tokenization of the source data, and use the data.table package to process the N-gram output from quanteda.
+
+Code executed in this report is not shown, but is available at
+
+https://github.com/ringspagit/DS10_Capstone_NLP/CapstoneWk2Analysis.Rmd
+
+
+## References
+
+The following papers were key references for guidance on how to approach this project:
 
 *Explanation of N-Grams and Natural Language Processing:*
 
 https://lagunita.stanford.edu/c4x/Engineering/CS-224N/asset/slp4.pdf
 
-*Guidance from Len Greski, course mentor, on strategy to tackle this project:*
+*Notes from Len Greski, on best tools to tackle this project:*
 
 https://github.com/lgreski/datasciencectacontent/blob/master/markdown/capstone-simplifiedApproach.md
 
@@ -47,13 +77,12 @@ https://github.com/lgreski/datasciencectacontent/blob/master/markdown/capstone-s
 
 https://github.com/rstudio/cheatsheets/raw/master/quanteda.pdf
 
-*Code for this report is available at Github:*
 
-https://github.com/ringspagit/DS10_Capstone_NLP/CapstoneWk2Analysis.Rmd
+<br>
 
-## Initial Data Analysis
+# Initial Corpus Analysis
 
-Using basic wc command gives initial view of the raw data files as follows, without any cleaning.  Each file contains >30million words, spread over twice the number of rows in the twitter data.
+Using basic 'wc' command gives initial view of the raw data files as follows, without any cleaning.  Each file contains >30million words (spread over twice the number of lines in the twitter data).
 
 ```{r wc_info}
 #-------------------------------------------------------------------------------------
@@ -63,12 +92,15 @@ wc[,c(4,1:3)] %>% kable(
                 booktabs=T,format.args=list(big.mark = ','),
                 align=c("l","r","r","r"),digits=c(0,0,0,0),
                 caption="Line/Word/Byte Counts of Corpus Files") %>%
-                kable_styling(latex_options = "hold_position")
+                kable_styling(bootstrap_options = c("striped", "condensed"),
+                              latex_options = "hold_position",full_width=F) %>%
+                row_spec(4,bold=T) %>%
+                column_spec(3,background="yellow")
 ```
 
-We will consider all 3 files as part of a single population, using quanteda with options to reduce to lower case, remove symbols and punctuation (which preserves apostrophes and hyphenation), and generate the token list.  To help with basic analysis we construct a basic document feature matrix (DFM), though the eventual application will use ngram lists not the dfm.
+We will consider all 3 files as part of a single population, using quanteda options to reduce to lower case, remove symbols and punctuation (which preserves apostrophes and hyphenation), and generate the token list.  To help with basic analysis we construct a basic document feature matrix (DFM), though the eventual application will use N-gram lists not the DFM.
 
-At this stage, we are **not removing profanities** in order to not create invalid n-gram relationships due to missing words, and to focus on more important aspects of model construction.
+At this stage, we are **not removing profanities** in order to not create invalid N-gram relationships due to missing words, and to focus on more important aspects of model construction.
 
 For the purposes of analysis, DFMs both including and excluding stopwords were created in order to better understand the word distribution.
 
@@ -122,115 +154,38 @@ stopword_ct <- nrow(txstat)-nrow(txstat_nostop)
 stopword_pct <- round(100*(tot-tot_nostop)/tot,0)
 
 # Gather summary statistics to display as well as median ranks
-results_df <- data.frame("With Stopwords",wc[4,2],tot,nrow(txstat),stringsAsFactors=FALSE)
-results_df[2,] <- c("Without Stopwords",wc[4,2],tot_nostop,nrow(txstat_nostop))
-results_df[3,] <- c("Difference",0,tot-tot_nostop,stopword_ct)
-
 results_dt <- data.table(
-                Scope=c("With Stopwords","Without Stopwords","Difference"),
-                TotalWords=c(wc[4,2],wc[4,2],0),
-                TotalWordsCleaned=c(tot,tot_nostop,tot-tot_nostop),
-                UniqueWords=c(nrow(txstat),nrow(txstat_nostop),stopword_ct)
+                TotalWords      =c(wc[4,2],NA,NA),
+                Scope           =c("With Stopwords","Without Stopwords","Difference"),
+                TotalWordsClean =c(tot,tot_nostop,tot-tot_nostop),
+                UniqueWords     =c(nrow(txstat),nrow(txstat_nostop),stopword_ct),
+                UniqueWordsPct  =100*c(nrow(txstat),nrow(txstat_nostop),NA)/c(tot,tot_nostop,1)
 )
 
 # Tabulate results
 results_dt %>% kable(
-                col.names=c("Scope","Total words (orig)","Total words (cleaned)",
-                            "Unique Words"),
+                col.names=c("Total words (orig)","Scope","Total words (cleaned)",
+                            "Unique Words","Unique % of Total"),
                 row.names=FALSE,
                 booktabs=T,format.args=list(big.mark = ','),
-                align=c("l","r","r","r"),digits=c(0,0,0,0),
+                align=rep("r",5),digits=c(0,0,0,0,1),
                 caption="Word Count of Corpus") %>%
-                kable_styling(latex_options = "hold_position")
+                kable_styling(bootstrap_options = c("striped", "condensed"),
+                              latex_options = "hold_position",full_width=F) %>%
+                row_spec(3,italic=T) %>%
+                column_spec(4,background="yellow")
 ```
 
-## Observations
+## Observations on the Corpus
 
-The following figures provide wordcloud, cumulative distribution, and frequency for top 50 features.  Note:
+See Appendix for wordclouds, and histograms of top features and N-grams.  Following is a plot of the CDF showing how many unique words are required to cover 50% and 90% of the corpus, both with and without stopwords:
 
-- `r stopword_ct` of the words are stopwords.  These account for `r stopword_pct`% of the words in the Corpus
-- Including stop words, 50% of the word coverage comes from the top `r cum50` words (`r cum50_pct`% of the population)
-- Including stop words, 90% of the word coverage comes from the top `r cum90` words (`r cum90_pct`% of the population)
-- Excluding stop words, 50% of the word coverage comes from the top `r cum50_nostop` words (`r cum50_nostop_pct`% of the population)
-- Excluding stop words, 90% of the word coverage comes from the top `r cum90_nostop` words (`r cum90_nostop_pct`% of the population)
-- For purpose of contextual analysis it would seem removal of stopwords makes sense, however the focus of this project is on text prediction so stopwords likely need to remain in the n-gram relationships.
-
-
-## N-Grams
-```{r bigrams_proc1, cache=TRUE}
+```{r cdf, fig.height=4, fig.width=6, fig.align = "center", fig.cap = "CDF of Corpus Coverage by Features (Unique Words)"}
 #-------------------------------------------------------------------------------------
-# Generate bigrams
-ng <- tokens(char_tolower(tx$text),remove_symbols=TRUE,remove_punct=TRUE,
-               ngrams=2,concatenator=" ")
+# CDF for Corpus Coverage by Unique Features
 
-# Convert to datatable and summarize
-dt <- as.data.table(as.character(ng))
-colnames(dt) <- c("ngram")
-dt2<-dt[,.(freq=.N),by=ngram]
-
-# Get totals, order by freq and build data to plot CDF
-tot_ng  <- dt2[,sum(freq)]      # sum($freq)
-unq_ng  <- dt2[,.N]             # nrow()
-
-```
-
-```{r bigrams_proc2, cache=TRUE}
-#-------------------------------------------------------------------------------------
-# Order by freq, copy to new data table and calculate rank and CDF scores
-dtn <- dt2[order(-freq)]
-dtn[,rank := .I]
-dtn[,pct := freq/tot_ng]
-dtn[,cdf := cumsum(pct)]
-
-# Get the 50/90%-iles
-dtn50   <- min(dtn[cdf>=0.5,rank])
-dtn90   <- min(dtn[cdf>=0.9,rank])
-
-# Split the ngram
-setkey(dtn,ngram)
-dtn[,c("word1","word2") := tstrsplit(ngram," ")]
-
-# Get the stopwords
-dtstop <- as.data.table(stopwords("english"))
-colnames(dtstop) = "stopword"
-dtstop[,is_stopword:=TRUE]
-setkey(dtstop,stopword)
-
-# Tag the bigrams with stopwords
-setkey(dtn,word1)
-dtn[,word1stop:=dtstop[dtn,is_stopword]]
-setkey(dtn,word2)
-dtn[,word2stop:=dtstop[dtn,is_stopword]]
-setkey(dtn,rank)
-
-```
-
-Bi-gram statistics:
-
-- Number of bigrams `r tot_ng`
-- Unique bigrams `r unq_ng`
-- 50% coverage at `r dtn50`
-- 90% coverage at `r dtn90`
-
-
-## Charts
-
-```{r wordcloud, fig.height=5, fig.width=5, fig.align = "center", fig.cap = "Word Cloud (Top 500), With Stopwords", warning=FALSE}
-#-------------------------------------------------------------------------------------
-# Word Cloud (Top 500), With Stopwords
-txdfm %>% textplot_wordcloud(max_words=500)
-```
-
-```{r wordcloud_nostop, fig.height=5, fig.width=5, fig.align = "center", fig.cap = "Word Cloud (Top 500), Without Stopwords", warning=FALSE}
-#-------------------------------------------------------------------------------------
-# Word Cloud (Top 500), Without Stopwords
-txdfm_nostop %>% textplot_wordcloud(max_words=500)
-```
-
-```{r cdf, fig.height=5, fig.width=5, fig.align = "center", fig.cap = "CDF for Feature Frequency"}
-#-------------------------------------------------------------------------------------
-# CDF for Feature Frequency
 theme_set(theme_bw())
+max_rank <- 30
 
 txsub1 <- txstat[c(1:max_chart),]
 txsub1$population <- "With Stopwords"
@@ -242,73 +197,301 @@ txsub1comb <- rbind(txsub1,txsub1_nostop)
 g1 <- ggplot(txsub1comb,aes(x=rank,y=cdf,colour=population)) +
         geom_line() +
         geom_hline(yintercept=0.5,linetype="dotted") +
-        geom_vline(xintercept=cum50,linetype="dotted") +
+        geom_vline(xintercept=cum50,linetype="dotted",color="red") +
         geom_vline(xintercept=cum50_nostop,linetype="dotted") +
+        geom_text(aes(x=cum50, label=paste0(cum50," words"), y=1), color="red", nudge_x = 2500) +
         geom_hline(yintercept=0.9,linetype="dotted") +
         geom_vline(xintercept=cum90,linetype="dotted") +
-        geom_vline(xintercept=cum90_nostop,linetype="dotted") +
+        geom_vline(xintercept=cum90_nostop,linetype="dotted",color="red") +
+        geom_text(aes(x=cum90, label=paste0(cum90," words"), y=1, hjust="inward"), color="red", nudge_x = 3000) +
         ylim(0,1) +
-        theme(legend.position="top")
-g1
+        ylab("CDF of Corpus Coverage") +
+        xlab("Number of Features (Unique Words)") +
+        theme(legend.position="right")
+print(g1)
+
 ```
 
-```{r top50, fig.height=6, fig.width=6, fig.align = "center", fig.cap = "Top 50 Features, With Stopwords"}
+Note:
+
+* `r stopword_ct` of the words are stopwords.  These account for `r stopword_pct`% of the words in the Corpus
+* Including stop words:
++ 50% of the word coverage comes from the top `r cum50` words (`r cum50_pct`% of the population)
++ **90% of the word coverage comes from the top `r cum90` words (`r cum90_pct`% of the population)**
+* Excluding stop words:
++ 50% of the word coverage comes from the top `r cum50_nostop` words (`r cum50_nostop_pct`% of the population)
++ 90% of the word coverage comes from the top `r cum90_nostop` words (`r cum90_nostop_pct`% of the population)
+* For purpose of contextual analysis it would seem removal of stopwords makes sense, however the focus of this project is on text prediction so stopwords likely need to remain in the N-gram relationships.
+* **Based on this information, one avenue to explore in optimization of the prediction model is to reduce the N-gram model by just focusing on the relatively small subset of word predictions which cover a large proportion of the observed language.**
+
+<br>
+
+# Initial N-Gram Analysis
+
+Generating N-Grams for the entire corpus is extremely resource intensive and time-consuming.  A procedure was written to process all 3 corpus files of ~4million lines combined, and randomly assign them to 10 files, which can then be used for (a) analysis of partial population; (b) chunked up processing of N-Grams for majority or total population; (c) splitting the population into training and test datasets.  For an understanding of the N-gram distribution and to build basic initial model for prediction, we loaded and analyzed one of these files (i.e. random 10% of the corpus).
+
+For the initial prediction model we will calculate probability P() using relative frequency i.e. the observed frequency C() of the N-gram divided by the observed frequency of the prefix n-1 words ("base").  Using the notation of $w_1...w_n$ to mean a sequence of n words $w_i$:
+
+$P(w_1...w_n) = \frac{C(w_1...w_n)}{C(w_1...w_{n-1})}$
+
+Processing steps used are:
+
+1. Generate all N-grams with N=1:5 (N=1 (unigrams) are needed in the dataset to provide the 'base' for the bi-grams)
+2. Summarize to unique N-grams with frequency count ($ngram\_freq$)
+3. Split the N-gram into it's constituent 'base' (i.e. $w_1...w_{n-1}$) and 'next word' ($w_n$)
+4. Calculate the frequency count of the 'base' as an N-gram in the dataset ($base\_freq$)
+5. Calculate the probability of the N-gram as its frequency divided by the frequency of the 'base' ($\frac{ngram\_freq}{base\_freq}$)
+6. For each 'base', rank its possible N-gram outcomes by probability from highest to lowest ($ngram\_prob\_rank$)
+
+From this data we can then focus on the smaller subset of 'top ranked' N-grams ($ngram\_prob\_rank = 1$).
+
+Note that the number of top ranked N-grams for N=n will (in theory) be the number of unique N-grams for N=(n-1), and for N=1 there is only 1 top-ranked N-gram, which is by definition the most frequent feature in the corpus ("the").  In practice there is a difference of 1 for top-ranked trigrams vs. bigrams and so on.  This analysis ignores beginning and start of lines, so the N-gram sequence generated by quanteda is just a continuous string of the corpus provided.  However on the last line of corpus, if the final bigram is a singular example in the corpus, it will not have a corresponding trigram, and so forth with larger terminal N-grams.  It just so happened in this random sample that the final line was "Seriously, who \<profanity\>" which accounts for the difference of 1 in the counts.  We will ignore this edge condition for now.
+
+This now gives us a basic framework to then decide, given an input of $(w_1...w_{n-1})$ words as starting point, what is the most likely N-gram which extends the sentence to ${w_n}$, for $n\leq5$.
+
+Results of this processing for the 10% sample corpus are shown below.
+
+```{r ngrams_proc1, cache=TRUE}
 #-------------------------------------------------------------------------------------
-# Top 50 Features, With Stopwords
-txsub2<-txstat[c(1:50),]
-#txsub2$population <- "With Stopwords"
+# Generate n-grams
+t0 <- readtext("./corpus_split/corpus0.txt")
+ng <- tokens(char_tolower(t0$text),remove_symbols=TRUE,remove_punct=TRUE,
+               ngrams=1:5,concatenator=" ")
+
+# Convert to datatable, determine the ngram length and summarize
+dt <- as.data.table(as.character(ng))
+colnames(dt) <- c("ngram")
+dt[,ngram_len:=str_count(ngram," ")+1]
+dtu<-dt[,.(freq=.N),by=.(ngram,ngram_len)]
+
+# Get totals, order by freq and build data to plot CDF
+tot_ng  <- dtu[,sum(freq),by=ngram_len]      # sum($freq)
+colnames(tot_ng)<-c("ngram_len","total")
+setkey(tot_ng,ngram_len)
+
+unq_ng  <- dtu[,.N,by=ngram_len]             # nrow()
+colnames(unq_ng)<-c("ngram_len","total")
+setkey(unq_ng,ngram_len)
+
+```
+
+```{r ngrams_proc2}
+#-------------------------------------------------------------------------------------
+# Order by ngram and then freq, copy to new data table and calculate rank and CDF scores
+dtn <- dtu[order(ngram_len,-freq)]
+setkey(dtn,ngram_len)
+
+dtn[,pct:=freq/tot_ng[dtn,total]]
+dtn[,rank:=1:.N,by=ngram_len]
+dtn[,cdf := cumsum(pct),by=ngram_len]
+
+# Get the 50/90%-iles
+dtn50 <- dtn[cdf>=0.5,min(rank),by=ngram_len]
+dtn90 <- dtn[cdf>=0.9,min(rank),by=ngram_len]
+colnames(dtn50)<-c("ngram_len","rank")
+colnames(dtn90)<-c("ngram_len","rank")
+
+```
+
+```{r ngrams_proc3}
+#-------------------------------------------------------------------------------------
+# Split the N-gram into base (N-1 words) and final word, and generate probably statistics
+# base word: \\s*\\S*$   {space}{not space}{end string} replaced by ""
+# next word: ^.* (\\S+)$ {begin}{any chars}{space}{1=one word}{end string} replaced by \\1
+
+dtn[,c("base_word","next_word"):=
+        .(gsub("\\s*\\S*$","",ngram),
+          gsub("^.* (\\S+)$","\\1",ngram))]
+
+# Set the key to base_word for fast lookups
+setkey(dtn,base_word)
+
+# Probability of N-gram (base -> nextword) = count(N-gram)/count(base)
+# Then rank all N-grams by their base words
+
+dtn[,base_freq       := sum(freq),by=base_word]
+dtn[,ngram_prob      := freq/base_freq]
+dtn[order(base_word,-ngram_prob),ngram_prob_rank := 1:.N,by=base_word]
+
+# Get summary table for report output
+
+dtn_top <- dtn[ngram_prob_rank==1,.N,by=ngram_len]
+colnames(dtn_top)<-c("ngram_len","total")
+
+```
+
+```{r ngrams_ranked_stats}
+#-------------------------------------------------------------------------------------
+# Order by ngram and then freq, copy to new data table and calculate rank and CDF scores
+
+ngresults <- data.table(
+                ngram_len       =c(tot_ng[,ngram_len],"Total"),
+                ngram_tot       =c(tot_ng[,total],tot_ng[,sum(total)]),
+                ngram_unq       =c(unq_ng[,total],unq_ng[,sum(total)]),
+                ngram_unq_pct   =c(100*unq_ng[,total]/tot_ng[,total],100*unq_ng[,sum(total)]/tot_ng[,sum(total)]),
+                top_tank        =c(dtn_top[,total],dtn_top[,sum(total)]),
+                pct50_rnk       =c(dtn50[,rank],NA),
+                pct50_pct       =c(100*dtn50[,rank]/unq_ng[,total],NA),
+                pct90_rnk       =c(dtn90[,rank],NA),
+                pct90_pct       =c(100*dtn90[,rank]/unq_ng[,total],NA)
+)
+
+ngresults %>% kable(
+                col.names=c("N-Gram","Total N-Grams","Unique N-Grams","Unique % Of Total","Top Ranked N-Grams",
+                                "50%-ile","50%-ile % of Unique","90%-ile","90%-ile % of Unique"),
+                row.names=F,
+                booktabs=T,format.args=list(big.mark = ','),
+                align=c("l",rep("r",8)),digits=c(0,0,0,1,0,0,1,0,1),
+                caption="N-Gram Distribution in Random 10% Corpus Sample") %>%
+                kable_styling(bootstrap_options = c("striped", "condensed"),
+                              latex_options = "hold_position",full_width=F,position='center') %>%
+                row_spec(6,bold=T) %>%
+                column_spec(5,background="yellow") %>%
+                add_header_above(c(" " = 5, "Unique N-Grams Population Coverage" = 4))
+
+```
+
+## N-Gram Examples
+
+The following are some illustrative examples of N-gram patterns generated using this method from this sample corpus:
+
+```{r ngram_examples}
+#-------------------------------------------------------------------------------------
+# Order by ngram and then freq, copy to new data table and calculate rank and CDF scores
+
+dtnex1 <- dtn[base_word=="at the bottom of"]
+dtnex1[order(ngram_len,ngram_prob_rank),
+       .(ngram,ngram_len,freq,base_word,next_word,base_freq,ngram_prob,ngram_prob_rank)] %>%
+        kable(
+                row.names=F,
+                booktabs=T,format.args=list(big.mark = ','),
+                align=c("l",rep("r",7)),
+                caption="N-Gram Example #1 (at the bottom of...)") %>%
+                kable_styling(bootstrap_options = c("striped", "condensed"),
+                              latex_options = "hold_position") %>%
+                row_spec(1,background="yellow")
+
+dtnex2 <- dtn[base_word=="and a case of"]
+dtnex2[order(ngram_len,ngram_prob_rank),
+       .(ngram,ngram_len,freq,base_word,next_word,base_freq,ngram_prob,ngram_prob_rank)] %>%
+        kable(
+                row.names=F,
+                booktabs=T,format.args=list(big.mark = ','),
+                align=c("l",rep("r",7)),
+                caption="N-Gram Example #2 (and a case of...)") %>%
+                kable_styling(bootstrap_options = c("striped", "condensed"),
+                              latex_options = "hold_position") %>%
+                row_spec(1,background="yellow")
+
+dtnex3 <- dtn[next_word=="speedskating"|base_word=="it's the heart of"]
+dtnex3[order(ngram_len,base_word,ngram_prob_rank),
+       .(ngram,ngram_len,freq,base_word,next_word,base_freq,ngram_prob,ngram_prob_rank)] %>%
+        kable(
+                row.names=F,
+                booktabs=T,format.args=list(big.mark = ','),
+                align=c("l",rep("r",7)),
+                caption="N-Gram Example #2 (...speedskating | it's the heart of...)") %>%
+                kable_styling(bootstrap_options = c("striped", "condensed"),
+                              latex_options = "hold_position") %>%
+                row_spec(c(6:7),background="yellow")
+
+```
+
+In Example #1 (all 5-Grams starting with "at the bottom of")
+
+* There are `r dtnex1[,sum(freq)]` instances of the 4-gram, with `r max(dtnex1[,ngram_prob_rank])` endings
+* Most frequently, `r dtnex1[ngram_prob_rank==1,freq]` of these cases end with "`r dtnex1[ngram_prob_rank==1,next_word]`"
+
+In Example #2 (all 5-Grams starting with "and a case of")
+
+* There are `r dtnex2[,sum(freq)]` instances of the 4-gram, with `r max(dtnex2[,ngram_prob_rank])` ending, "`r dtnex2[ngram_prob_rank==1,next_word]`"
+
+In Example #3 (all N-Grams ending with "speedskating" or starting with "it’s the heart of")
+
+* There is only 1 case which has an N-Gram rank of 1, "`r dtnex3[ngram_prob_rank==1,ngram]`", so only the phrase "`r dtnex3[ngram_prob_rank==1,base_word]`" will lead to a prediction of "`r dtnex3[ngram_prob_rank==1,next_word]`".
+* Based on this data there were two possible predictions given this base word, both with equal frequencies, but the ranking pre-selected "speedskating" based on alphabetical order of 'next_word'.
+* One possible improvement to consider is to break ties using the frequency of 'next_word' in the corpus, which would make "the", a more likely outcome here than "speedskating".
+
+
+## Observations on N-Grams
+
+Some observations and thoughts on next steps in model development:
+
+* As N increases, the complexity and hence the number of unique N-grams increases, and the number of N-grams needed to cover 50% or 90% of the population also rises i.e. the frequency of N-grams falls as they get more complex.  Going from N=3 to N=4 in the model essentially doubles the number of unique N-grams needed to model the corpus, going from N=3 to N=5 triples the number of unique N-grams needed.
+* **We will therefore need to consider whether this increase in N results in a corresponding increase of model accuracy vs. performance requirements; alternatively, consider reducing the population by discarding less frequently observed N-grams, which will help reduce the population for higher levels of N.**
+* Analysis of the 10% Corpus sample yielded a simple N-gram frequency model with about 20 million top-ranked records. Representation of this as strings consumes about 2GB in memory, but we know from the features analysis that this will contain a lot of word repetition.  Regardless of decisions of the N-gram population, more efficient representation of this using lookup/hash tables should also reduce the memory usage to make it easier to pre-process a larger volume of the corpus, and make the final prediction application run faster.
+
+<br>
+
+# Appendix - Figures
+
+1. Word Cloud (Top 500), with Stopwords
+2. Word Cloud (Top 500), without Stopwords
+3. Top Features (Unigrams), with Stopwords
+4. Top Features (Unigrams), without Stopwords
+5. Top N-Grams (N=2,3,4,5) - note reduction in frequency scale for higher N
+
+
+```{r wordcloud, fig.height=4, fig.width=4, fig.align = "center", fig.cap = "Word Cloud (Top 500), with Stopwords", warning=FALSE}
+#-------------------------------------------------------------------------------------
+# Word Cloud (Top 500), With Stopwords
+txdfm %>% textplot_wordcloud(max_words=500)
+
+```
+
+```{r wordcloud_nostop, fig.height=4, fig.width=4, fig.align = "center", fig.cap = "Word Cloud (Top 500), without Stopwords", warning=FALSE}
+#-------------------------------------------------------------------------------------
+# Word Cloud (Top 500), Without Stopwords
+txdfm_nostop %>% textplot_wordcloud(max_words=500)
+
+```
+
+```{r top_feat, fig.height=4, fig.width=4, fig.align = "center", fig.cap = "Top Features (Unigrams), with Stopwords"}
+#-------------------------------------------------------------------------------------
+# Top Features, With Stopwords
+
+txsub2<-txstat[c(1:max_rank),]
 
 g2 <- ggplot(txsub2, aes(x=reorder(feature,-rank), y=frequency, label=frequency)) +
         geom_bar(stat='identity',width=0.5,color="blue") + 
-        xlab("Top 50 Features (with Stopwords)") + 
+        xlab(paste0("Top ",max_rank," Features (Unigrams), with Stopwords")) + 
         ylab("Frequency") +
-        coord_flip() +
-        theme(legend.position="top")
-g2
+        scale_y_continuous(label=comma) +
+        coord_flip()
+print(g2)
+
 ```
 
-```{r top50_nostop, fig.height=6, fig.width=6, fig.align = "center", fig.cap = "Top 50 Features, Without Stopwords"}
+```{r top_feat_nostop, fig.height=4, fig.width=4, fig.align = "center", fig.cap = "Top Features (Unigrams), without Stopwords"}
 #-------------------------------------------------------------------------------------
-# Top 50 Features, Without Stopwords
-#txsub2_nostop$feature <- factor(txsub2_nostop$feature,levels = txsub2_nostop$feature)
-txsub2_nostop<-txstat_nostop[c(1:50),]
-#txsub2_nostop$population <- "Without Stopwords"
+# Top Features, Without Stopwords
+
+txsub2_nostop<-txstat_nostop[c(1:max_rank),]
+
 g3 <- ggplot(txsub2_nostop, aes(x=reorder(feature,-rank), y=frequency, label=frequency)) +
-        geom_bar(stat='identity',width=0.5,color="red") + 
-        xlab("Top 50 Features (without Stopwords)") + 
-        ylab("Frequency") +
-        coord_flip()
-g3
-```
-
-```{r top50_bi, fig.height=6, fig.width=6, fig.align = "center", fig.cap = "Top 50 N-Grams"}
-#-------------------------------------------------------------------------------------
-# Top 50 Bigrams
-
-dtnsub1 <- dtn[rank<=50,]
-g4 <- ggplot(dtnsub1, aes(x=reorder(ngram,-rank), y=freq, label=freq)) +
         geom_bar(stat='identity',width=0.5,color="blue") + 
-        xlab("Top 50 Bi-Grams") + 
+        xlab(paste0("Top ",max_rank," Features (Unigrams), without Stopwords")) + 
         ylab("Frequency") +
+        scale_y_continuous(label=comma) +
         coord_flip()
-g4
+print(g3)
 
 ```
 
-```{r top50_bi_nostop, fig.height=6, fig.width=6, fig.align = "center", fig.cap = "Top 50 N-Grams"}
+```{r top_ng, fig.height=4, fig.width=4, fig.align = "center", fig.cap = "Top N-Grams"}
 #-------------------------------------------------------------------------------------
-# Top 50 Bigrams, without stopwords
-dtnsub2 <- dtn[is.na(word1stop)&is.na(word2stop)][1:50]
-g5 <- ggplot(dtnsub2, aes(x=reorder(ngram,-rank), y=freq, label=freq)) +
-        geom_bar(stat='identity',width=0.5,color="red") + 
-        xlab("Top 50 Bi-Grams (without Stopwords") + 
-        ylab("Frequency") +
-        coord_flip()
-g5
+# Top N-grams
 
-```
+max_rank <- 30
+for (ngrams in 2:5) {
+        dtnsubtop <- dtn[ngram_len==ngrams & rank<=max_rank,]
+        gtop <- ggplot(dtnsubtop, aes(x=reorder(ngram,-rank), y=freq, label=freq)) +
+                geom_bar(stat='identity',width=0.5,color="blue") + 
+                xlab(paste0(ngrams,"-Grams Top ",max_rank)) + 
+                ylab("Frequency") +
+                scale_y_continuous(label=comma) +
+                coord_flip()
+        print(gtop)
+}
 
-\newpage
-## Code Appendix - R Code
-```{r ref.label=knitr::all_labels(), echo = T, eval = F}
 ```
