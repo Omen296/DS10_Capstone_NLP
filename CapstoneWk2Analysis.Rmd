@@ -40,7 +40,7 @@ options(knitr.kable.NA = '')
 
 The goal of this project is to create a text prediction model/algorithm and shiny app demonstrator to perform text prediction, using a "corpus" of 3 documents as a source for training data - extracts from blogs, news and twitter.
 
-This prediction model will likely utilize a pre-processed population of N-grams to perform a lookup based on text entered so far; the last N-1 words would be used to lookup the most frequent (hence, most likely) N-gram to predict the Nth word.  If no match can be found, the process is repeated with the next shortest N-gram and so forth.  
+This prediction model will likely utilize a pre-processed distribution of N-grams (sequence of N words) to perform a lookup based on text entered so far; the last N-1 words typed by the user would be used to lookup the most frequent (hence, most likely) N-gram to predict the Nth word that comes next.  If no match can be found, the process is repeated with the next shortest N-gram and so forth.  
 
 In this report we present:
 
@@ -48,20 +48,18 @@ In this report we present:
 2. Analysis of the distribution of N-grams up to N=5 for a random 10% sample of the Corpus.
 3. A basic model for ranking and predicting N-grams, along with examples.
 
-The main technical challenge of this project is the volume of data provided in the corpus which will generate a large number of N-grams and will be difficult to process on non-enterprise hardware.  Determining the optimal value of 'N', and the most efficient data structures and algorithm, will follow in next stages of the project.  However this initial analysis yielded some ideas to improve performance, for further exploration:
+The main technical challenge of this project is the volume of data provided in the corpus which will generate a large number of N-grams and will be difficult to fully process on non-enterprise hardware.  This analysis used the quanteda package, which provides fast multi-threaded tokenization of the corpus, and the data.table package to efficiently process the N-gram output from quanteda.
+
+Determining the optimal value of 'N', and the most efficient data structures and algorithm, will follow in next stages of the project.  However this initial analysis yielded some ideas to improve performance, for further exploration:
 
 * Reduce the population of N-gram predictions to just cover the small population (<1%) of words which account for 90% of the words in the corpus.
-* Reduce the population of N-gram predictions by either reducing N, or discarding the population of low frequency (less likely) N-grams which grows larger as N increases.
-* Representation of N-grams as lookups/hash tables to reduce redundancy in the data tables and improve performance, both during pre-processing and application runtime.
-
-Throughout this project we will make use of the quanteda package which provides fast multi-threaded tokenization of the source data, and use the data.table package to process the N-gram output from quanteda.
-
-Code executed in this report is not shown, but is available at
-
-https://github.com/ringspagit/DS10_Capstone_NLP/CapstoneWk2Analysis.Rmd
+* Reduce the population of N-gram predictions by either reducing N, or discarding the population of low frequency (less likely) N-grams which grows significantly larger as N increases.
+* Representation of N-grams as lookup/hash tables to reduce redundancy in the data tables and improve performance, both during pre-processing and application runtime.
 
 
 ## References
+
+Note: Code executed in this report is not shown, but is available at https://github.com/ringspagit/DS10_Capstone_NLP
 
 The following papers were key references for guidance on how to approach this project:
 
@@ -178,7 +176,7 @@ results_dt %>% kable(
 
 ## Observations on the Corpus
 
-See Appendix for wordclouds, and histograms of top features and N-grams.  Following is a plot of the CDF showing how many unique words are required to cover 50% and 90% of the corpus, both with and without stopwords:
+See Appendix for wordclouds, and histograms of top features and N-grams.  Following is a plot of the CDF showing how many unique words are required to cover the corpus, reflecting the 50% and 90% quantiles for the case including stopwords:
 
 ```{r cdf, fig.height=4, fig.width=6, fig.align = "center", fig.cap = "CDF of Corpus Coverage by Features (Unique Words)"}
 #-------------------------------------------------------------------------------------
@@ -196,14 +194,12 @@ txsub1comb <- rbind(txsub1,txsub1_nostop)
 
 g1 <- ggplot(txsub1comb,aes(x=rank,y=cdf,colour=population)) +
         geom_line() +
-        geom_hline(yintercept=0.5,linetype="dotted") +
-        geom_vline(xintercept=cum50,linetype="dotted",color="red") +
-        geom_vline(xintercept=cum50_nostop,linetype="dotted") +
-        geom_text(aes(x=cum50, label=paste0(cum50," words"), y=1), color="red", nudge_x = 2500) +
-        geom_hline(yintercept=0.9,linetype="dotted") +
-        geom_vline(xintercept=cum90,linetype="dotted") +
-        geom_vline(xintercept=cum90_nostop,linetype="dotted",color="red") +
-        geom_text(aes(x=cum90, label=paste0(cum90," words"), y=1, hjust="inward"), color="red", nudge_x = 3000) +
+        geom_hline(yintercept=0.5,linetype="dotted",color="red",size=1) +
+        geom_vline(xintercept=cum50,linetype="dotted",color="red",size=1) +
+        geom_text(aes(x=cum50, label=paste0(cum50," words"), y=0), color="red", nudge_x = 2500) +
+        geom_hline(yintercept=0.9,linetype="dotted",color="red",size=1) +
+        geom_vline(xintercept=cum90,linetype="dotted",color="red",size=1) +
+        geom_text(aes(x=cum90, label=paste0(cum90," words"), y=0), color="red", nudge_x = 3000) +
         ylim(0,1) +
         ylab("CDF of Corpus Coverage") +
         xlab("Number of Features (Unique Words)") +
@@ -215,20 +211,20 @@ print(g1)
 Note:
 
 * `r stopword_ct` of the words are stopwords.  These account for `r stopword_pct`% of the words in the Corpus
-* Including stop words:
-+ 50% of the word coverage comes from the top `r cum50` words (`r cum50_pct`% of the population)
-+ **90% of the word coverage comes from the top `r cum90` words (`r cum90_pct`% of the population)**
-* Excluding stop words:
-+ 50% of the word coverage comes from the top `r cum50_nostop` words (`r cum50_nostop_pct`% of the population)
-+ 90% of the word coverage comes from the top `r cum90_nostop` words (`r cum90_nostop_pct`% of the population)
+* Including stopwords:
+    + 50% of the word coverage comes from the top `r cum50` words (`r cum50_pct`% of the population)
+    + **90% of the word coverage comes from the top `r cum90` words (`r cum90_pct`% of the population)**
+* Excluding stopwords:
+    + 50% of the word coverage comes from the top `r cum50_nostop` words (`r cum50_nostop_pct`% of the population)
+    + 90% of the word coverage comes from the top `r cum90_nostop` words (`r cum90_nostop_pct`% of the population)
 * For purpose of contextual analysis it would seem removal of stopwords makes sense, however the focus of this project is on text prediction so stopwords likely need to remain in the N-gram relationships.
-* **Based on this information, one avenue to explore in optimization of the prediction model is to reduce the N-gram model by just focusing on the relatively small subset of word predictions which cover a large proportion of the observed language.**
+* **Based on this information, one avenue to explore in optimization of the prediction model is to reduce the N-gram model by just focusing on the smaller subset of word predictions which cover a large proportion of the observed language.**
 
 <br>
 
 # Initial N-Gram Analysis
 
-Generating N-Grams for the entire corpus is extremely resource intensive and time-consuming.  A procedure was written to process all 3 corpus files of ~4million lines combined, and randomly assign them to 10 files, which can then be used for (a) analysis of partial population; (b) chunked up processing of N-Grams for majority or total population; (c) splitting the population into training and test datasets.  For an understanding of the N-gram distribution and to build basic initial model for prediction, we loaded and analyzed one of these files (i.e. random 10% of the corpus).
+Generating N-grams for the entire corpus is extremely resource intensive and time-consuming.  A procedure was written to process all 3 corpus files of ~4million lines combined, and randomly assign them to 10 files, which can then be used for (a) analysis of partial population; (b) chunked up processing of N-grams for majority or total population; (c) splitting the population into training and test datasets.  For an understanding of the N-gram distribution and to build basic initial model for prediction, we loaded and analyzed one of these files (i.e. random 10% of the corpus).
 
 For the initial prediction model we will calculate probability P() using relative frequency i.e. the observed frequency C() of the N-gram divided by the observed frequency of the prefix n-1 words ("base").  Using the notation of $w_1...w_n$ to mean a sequence of n words $w_i$:
 
@@ -236,7 +232,7 @@ $P(w_1...w_n) = \frac{C(w_1...w_n)}{C(w_1...w_{n-1})}$
 
 Processing steps used are:
 
-1. Generate all N-grams with N=1:5 (N=1 (unigrams) are needed in the dataset to provide the 'base' for the bi-grams)
+1. Generate all N-grams with N=1:5 (N=1 (unigrams) are needed in the dataset to provide the 'base' for bigrams)
 2. Summarize to unique N-grams with frequency count ($ngram\_freq$)
 3. Split the N-gram into it's constituent 'base' (i.e. $w_1...w_{n-1}$) and 'next word' ($w_n$)
 4. Calculate the frequency count of the 'base' as an N-gram in the dataset ($base\_freq$)
@@ -245,11 +241,11 @@ Processing steps used are:
 
 From this data we can then focus on the smaller subset of 'top ranked' N-grams ($ngram\_prob\_rank = 1$).
 
-Note that the number of top ranked N-grams for N=n will (in theory) be the number of unique N-grams for N=(n-1), and for N=1 there is only 1 top-ranked N-gram, which is by definition the most frequent feature in the corpus ("the").  In practice there is a difference of 1 for top-ranked trigrams vs. bigrams and so on.  This analysis ignores beginning and start of lines, so the N-gram sequence generated by quanteda is just a continuous string of the corpus provided.  However on the last line of corpus, if the final bigram is a singular example in the corpus, it will not have a corresponding trigram, and so forth with larger terminal N-grams.  It just so happened in this random sample that the final line was "Seriously, who \<profanity\>" which accounts for the difference of 1 in the counts.  We will ignore this edge condition for now.
+Note that the number of top ranked N-grams for N=n will (in theory) be the number of unique N-grams for N=(n-1), and for N=1 there is only 1 top-ranked N-gram, which is by definition the most frequent feature in the corpus ("the").  In practice there is a difference of 1 for top-ranked trigrams vs. bigrams and so on.  This analysis ignores beginning and start of lines, so the N-gram sequence generated by quanteda is just a continuous string of the corpus provided.  However on the last line of corpus, if the final bigram is a singular example in the corpus, it will not appear as a 'base' prefix in a corresponding trigram, and so forth with larger terminal N-grams.  It just so happened in this random sample that the final line was "Seriously, who \<profanity\>", a unique phrase, which accounts for the difference of 1 in the counts.  We will ignore this edge condition for now.
 
-This now gives us a basic framework to then decide, given an input of $(w_1...w_{n-1})$ words as starting point, what is the most likely N-gram which extends the sentence to ${w_n}$, for $n\leq5$.
+This now gives us a basic framework to determine, given an input of $(w_1...w_{n-1})$ words, what is the most likely N-gram which extends the sentence to ${w_n}$, for $n\leq5$.
 
-Results of this processing for the 10% sample corpus are shown below.
+Results of this processing for the 10% sample corpus are shown below.  Note the significant increase in unique and top-ranked N-grams, as N increases.
 
 ```{r ngrams_proc1, cache=TRUE}
 #-------------------------------------------------------------------------------------
@@ -337,17 +333,17 @@ ngresults <- data.table(
 )
 
 ngresults %>% kable(
-                col.names=c("N-Gram","Total N-Grams","Unique N-Grams","Unique % Of Total","Top Ranked N-Grams",
+                col.names=c("N-gram","Total N-grams","Unique N-grams","Unique % Of Total","Top Ranked N-grams",
                                 "50%-ile","50%-ile % of Unique","90%-ile","90%-ile % of Unique"),
                 row.names=F,
                 booktabs=T,format.args=list(big.mark = ','),
                 align=c("l",rep("r",8)),digits=c(0,0,0,1,0,0,1,0,1),
-                caption="N-Gram Distribution in Random 10% Corpus Sample") %>%
+                caption="N-gram Distribution in Random 10% Corpus Sample") %>%
                 kable_styling(bootstrap_options = c("striped", "condensed"),
                               latex_options = "hold_position",full_width=F,position='center') %>%
                 row_spec(6,bold=T) %>%
                 column_spec(5,background="yellow") %>%
-                add_header_above(c(" " = 5, "Unique N-Grams Population Coverage" = 4))
+                add_header_above(c(" " = 5, "Unique N-grams Population Coverage" = 4))
 
 ```
 
@@ -397,18 +393,18 @@ dtnex3[order(ngram_len,base_word,ngram_prob_rank),
 
 ```
 
-In Example #1 (all 5-Grams starting with "at the bottom of")
+In Example #1 (all 5-grams starting with "at the bottom of")
 
 * There are `r dtnex1[,sum(freq)]` instances of the 4-gram, with `r max(dtnex1[,ngram_prob_rank])` endings
 * Most frequently, `r dtnex1[ngram_prob_rank==1,freq]` of these cases end with "`r dtnex1[ngram_prob_rank==1,next_word]`"
 
-In Example #2 (all 5-Grams starting with "and a case of")
+In Example #2 (all 5-grams starting with "and a case of")
 
 * There are `r dtnex2[,sum(freq)]` instances of the 4-gram, with `r max(dtnex2[,ngram_prob_rank])` ending, "`r dtnex2[ngram_prob_rank==1,next_word]`"
 
-In Example #3 (all N-Grams ending with "speedskating" or starting with "it’s the heart of")
+In Example #3 (all N-grams ending with "speedskating" or starting with "it’s the heart of")
 
-* There is only 1 case which has an N-Gram rank of 1, "`r dtnex3[ngram_prob_rank==1,ngram]`", so only the phrase "`r dtnex3[ngram_prob_rank==1,base_word]`" will lead to a prediction of "`r dtnex3[ngram_prob_rank==1,next_word]`".
+* There is only 1 case which has an N-gram rank of 1, "`r dtnex3[ngram_prob_rank==1,ngram]`", so only the phrase "`r dtnex3[ngram_prob_rank==1,base_word]`" will lead to a prediction of "`r dtnex3[ngram_prob_rank==1,next_word]`".
 * Based on this data there were two possible predictions given this base word, both with equal frequencies, but the ranking pre-selected "speedskating" based on alphabetical order of 'next_word'.
 * One possible improvement to consider is to break ties using the frequency of 'next_word' in the corpus, which would make "the", a more likely outcome here than "speedskating".
 
