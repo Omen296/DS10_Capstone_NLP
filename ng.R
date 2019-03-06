@@ -58,18 +58,31 @@ wk4_test <- function(remove_stopwords=FALSE) {
 }
 
 
+
+#################################################################################################
+## Function	: ng_log(x,verbose=TRUE)
+## Description 	: if verbose mode, print x and flush console
+#################################################################################################
+
+ng_log <- function(verbose=TRUE,x) {
+	if (verbose) {
+		print(x)
+		flush.console()
+	}
+}
+
+
 #################################################################################################
 ## Function	: ng_predict(phrase,max_ngrams=5)
 ## Description 	: For given string, predict and return the next word
 #################################################################################################
 
-	
+ng_predict <- function(phrase,remove_stopwords=FALSE,verbose=TRUE,max_ngram=5) {
 
-ng_predict <- function(phrase,remove_stopwords=FALSE,max_ngram=5) {
+	ng_log(verbose,">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+	ng_log(verbose,paste0("Phrase: ",phrase))
 
-	print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-	print(paste0("Phrase: ",phrase))
-
+	# Convert the phrase with same parameters as n-gram model
 	tok <- tokens(char_tolower(phrase),
 				remove_symbols=TRUE,
 				remove_punct=TRUE,
@@ -81,144 +94,59 @@ ng_predict <- function(phrase,remove_stopwords=FALSE,max_ngram=5) {
 		tok <- tokens_remove(tok,stopwords("english"))
 	}
 
+	# Convert result to datatable and check there is valid sequence left
 	words <- as.data.table(as.character(tok))
-
 	colnames(words)<-"feature"
 
 	max_words <- words[,.N]
 	max_to_try <- min(max_ngram-1,max_words)
-
 	if (max_to_try == 0)
 		return()
 
-	words[,word_order:=1:.N]			# preserve order
+	# Convert these words to reverse list of dic IDs
+	words[,word_order:=1:.N]			# preserve order for reference
 	setkey(words,feature)				# set up for lookup
 	setkey(dic,feature)
 	words[,word_id:=dic[words,rank]]		# lookup ids
 	word_ids<-words[order(-word_order),word_id]	# go in reverse order
 
-#	print(paste0("Num words: ",max_words," max to try: ",max_to_try))
-#	print(words[order(-word_order)])
+	ng_log(verbose,word_ids)
 
-	print(word_ids)
-
+	# Loop from longest possible n-gram to 1 and loop over ngram lists looking for match
 	next_word_res <- as.data.table(NULL)
-	first_choice <- NULL
-	next_word <- NULL
-	next_word_id <- NULL
 
 	for (i in max_to_try:1) {
 
-#		print(paste0("Checking ",i,"-gram: "))
+		# Get all the matching n-grams for this level i.e. for i=1 we want all bigrams which
+		# have first index as the first word id (last word in phrase), etc.
 
 		next_word_info <- switch(
 			i,
-			ng[ngram_len==2 & idx1==word_ids[1], .(idx2,ngram_len,ngram_freq,ngram_prob,ngram_prob_rank)],
-			ng[ngram_len==3 & idx1==word_ids[2] & idx2==word_ids[1], .(idx3,ngram_len,ngram_freq,ngram_prob,ngram_prob_rank)],
-			ng[ngram_len==4 & idx1==word_ids[3] & idx2==word_ids[2] & idx3==word_ids[1], .(idx4,ngram_len,ngram_freq,ngram_prob,ngram_prob_rank)],
+			ng[ngram_len==2 & idx1==word_ids[1], 
+				.(idx2,ngram_len,ngram_freq,ngram_prob,ngram_prob_rank)],
+			ng[ngram_len==3 & idx1==word_ids[2] & idx2==word_ids[1], 
+				.(idx3,ngram_len,ngram_freq,ngram_prob,ngram_prob_rank)],
+			ng[ngram_len==4 & idx1==word_ids[3] & idx2==word_ids[2] & idx3==word_ids[1], 
+				.(idx4,ngram_len,ngram_freq,ngram_prob,ngram_prob_rank)],
 			ng[ngram_len==5 & idx1==word_ids[4] & idx2==word_ids[3] & idx3==word_ids[2] & idx4==word_ids[1], 
 				.(idx5,ngram_len,ngram_freq,ngram_prob,ngram_prob_rank)]
+
 		)
 
 		colnames(next_word_info)[1] <- "idx"
 		setkey(next_word_info,idx)
-		setkey(dic,rank)
 
+		# Lookup the word string from the dictionary
+		setkey(dic,rank)
 		next_word_info[,next_word:=dic[next_word_info,feature]]
 
+		# Consolidate results list
 		next_word_res <- rbind(next_word_res,next_word_info)
-
-#		print(next_word_info)
-#
-#		# Allow for multiple row results if ngrams generated with rank > 1
-#
-#		if (nrow(next_word_info) > 0) {
-#			for (j in 1:nrow(next_word_info)) {
-#
-#				next_word_id <- as.integer(next_word_info[j,1])
-#				next_word_id_freq <- next_word_info[j,2]
-#				next_word_id_prob <- next_word_info[j,3]
-#				next_word_id_prob_rank <- next_word_info[j,4]
-#
-#				if (length(next_word_id) != 0) {
-#					next_word <- dic[rank==next_word_id,feature]
-#					print(paste0("Found >>>>>> ",next_word, " <<<<<< word # ",next_word_id, 
-#						" N-gram freq: ",next_word_id_freq,
-#						" N-gram prob: ",next_word_id_prob))
-#					print(paste0("Full text >> ",phrase," ",next_word))
-#					print("")
-#					if (is.null(first_choice)) {
-#						first_choice <- next_word
-#					}
-#					next_word_info[j,]$next_word <- next_word
-#				}
-#			}
-#		}
-#
-#		next_word_res <- rbind(next_word_res,next_word_info,fill=TRUE)
-
 	}
-
-#	print(">>>>>>>>> RESULTS <<<<<<<<<")
-	print(next_word_res[order(-ngram_len,ngram_prob_rank)],nrows=200)
-
-	first_choice
-}
-
-ng_predict_app <- function(phrase,remove_stopwords=FALSE,max_ngram=5) {
-
-	tok <- tokens(char_tolower(phrase),
-				remove_symbols=TRUE,
-				remove_punct=TRUE,
-				remove_twitter=TRUE,
-				remove_numbers=TRUE,
-				remove_url=TRUE)
-
-	if (remove_stopwords) {
-		tok <- tokens_remove(tok,stopwords("english"))
-	}
-
-	words <- as.data.table(as.character(tok))
-
-	colnames(words)<-"feature"
-
-	max_words <- words[,.N]
-	max_to_try <- min(max_ngram-1,max_words)
-
-	if (max_to_try == 0)
-		return()
-
-	words[,word_order:=1:.N]			# preserve order
-	setkey(words,feature)				# set up for lookup
-	words[,word_id:=dic[words,rank]]		# lookup ids
-	word_ids<-words[order(-word_order),word_id]	# go in reverse order
-
-	next_word_id <- NULL
-	first_choice <- NULL
-	next_word <- NULL
-
-	for (i in max_to_try:1) {
-
-		next_word_info <- switch(
-			i,
-			ng[ngram_len==2 & idx1==word_ids[1], .(idx2,ngram_freq)],
-			ng[ngram_len==3 & idx1==word_ids[2] & idx2==word_ids[1], .(idx3,ngram_freq)],
-			ng[ngram_len==4 & idx1==word_ids[3] & idx2==word_ids[2] & idx3==word_ids[1], .(idx4,ngram_freq)],
-			ng[ngram_len==5 & idx1==word_ids[4] & idx2==word_ids[3] & idx3==word_ids[2] & idx4==word_ids[1], .(idx5,ngram_freq)]
-		)
-
-
-		next_word_id <- next_word_info[[1]]
-		next_word_id_freq <- next_word_info[[2]]
-
-		if (length(next_word_id) != 0) {
-			next_word <- dic[rank==next_word_id,feature]
-			if (is.null(first_choice)) {
-				first_choice <- next_word
-			}
-		}
-	}
-
-	first_choice
+	
+	ng_log(verbose,next_word_res[order(-ngram_len,ngram_prob_rank)])
+	
+	# Return first word with highest ngram length and best rank
+	next_word_res[order(-ngram_len,ngram_prob_rank)][1,next_word]
 }
 
