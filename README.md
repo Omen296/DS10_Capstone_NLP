@@ -16,7 +16,7 @@ Working Scripts / Functions:
     + **ng_pre_merge()**	merges the corpus n-gram files into MASTER file
     + **ng_pre_top()**		create TOP file with basic prob/ranks, pruned by rank & freq
 * **ng_load.R:**
-    + Loads dic and ng datatables, sources ng.R
+    + Setup fresh R session to run model: Loads dic and ng datatables, sources **ng.R**
 * **ng.R:**
     + **ng_predict()**		returns singular (top) prediction for phrase
     + wk3_test()**		runs the test predictions for Week 3 Quiz
