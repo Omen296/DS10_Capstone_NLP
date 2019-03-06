@@ -28,10 +28,10 @@ wk3_test <- function(remove_stopwords=FALSE) {
 
 	answers <- NULL
 	for (phrase in phrases) {
-		answers <- c(answers,ng_predict(phrase,remove_stopwords))
+		answers <- c(answers,ng_predict(phrase,remove_stopwords,choices=20)[1,1])
 	}
 
-	print(answers)
+	print(transpose(answers))
 }
 
 wk4_test <- function(remove_stopwords=FALSE) {
@@ -51,10 +51,10 @@ wk4_test <- function(remove_stopwords=FALSE) {
 
 	answers <- NULL
 	for (phrase in phrases) {
-		answers <- c(answers,ng_predict(phrase,remove_stopwords))
+		answers <- c(answers,ng_predict(phrase,remove_stopwords,choices=20)[1,1])
 	}
 
-	print(answers)
+	print(transpose(answers))
 }
 
 
@@ -77,7 +77,7 @@ ng_log <- function(verbose=TRUE,x) {
 ## Description 	: For given string, predict and return the next word
 #################################################################################################
 
-ng_predict <- function(phrase,remove_stopwords=FALSE,verbose=TRUE,max_ngram=5) {
+ng_predict <- function(phrase,remove_stopwords=FALSE,verbose=TRUE,choices=1,max_length=0,max_ngram=5) {
 
 	ng_log(verbose,">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
 	ng_log(verbose,paste0("Phrase: ",phrase))
@@ -98,8 +98,11 @@ ng_predict <- function(phrase,remove_stopwords=FALSE,verbose=TRUE,max_ngram=5) {
 	words <- as.data.table(as.character(tok))
 	colnames(words)<-"feature"
 
-	max_words <- words[,.N]
-	max_to_try <- min(max_ngram-1,max_words)
+	num_words <- words[,.N]
+	if (max_length > 0 & num_words >= max_length)
+		return()				# Hook for UI to gen sentence without blowing up
+
+	max_to_try <- min(max_ngram-1,num_words)
 	if (max_to_try == 0)
 		return()
 
@@ -146,7 +149,18 @@ ng_predict <- function(phrase,remove_stopwords=FALSE,verbose=TRUE,max_ngram=5) {
 	
 	ng_log(verbose,next_word_res[order(-ngram_len,ngram_prob_rank)])
 	
-	# Return first word with highest ngram length and best rank
-	next_word_res[order(-ngram_len,ngram_prob_rank)][1,next_word]
+	# if choices is 0 just return the first word, otherwise datatable of choices with cols
+	if (choices<0) {
+
+		# Return first -1*choices words with highest ngram length and best rank
+		next_word_res[order(-ngram_len,ngram_prob_rank)][1:(-1*choices),next_word]
+
+	} else {
+
+		# Return data table with top # of choices
+		next_word_res[order(-ngram_len,ngram_prob_rank)][
+			1:choices,.(next_word,ngram_len,ngram_freq,round(ngram_prob,5),ngram_prob_rank)]
+	}
+	
 }
 
