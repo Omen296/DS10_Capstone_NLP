@@ -6,6 +6,9 @@ See R  and Rmd documents for R code.
 
 Week 2 Analysis Report: https://ringspagit.github.io/DS10_Capstone_NLP/CapstoneWk2Analysis.html
 
+Shiny App (Prototype):  https://ringspagit.shinyapps.io/NexText/
+
+---
 Working Scripts / Functions:
 
 * **proc_corpus_split()**
