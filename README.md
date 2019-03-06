@@ -19,5 +19,5 @@ Working Scripts / Functions:
     + Setup fresh R session to run model: Loads dic and ng datatables, sources **ng.R**
 * **ng.R:**
     + **ng_predict()**		returns singular (top) prediction for phrase
-    + wk3_test()**		runs the test predictions for Week 3 Quiz
-    + wk4_test()** 		runs the test predictions for Week 4 Quiz
+    + **wk3_test()**		runs the test predictions for Week 3 Quiz
+    + **wk4_test()** 		runs the test predictions for Week 4 Quiz
