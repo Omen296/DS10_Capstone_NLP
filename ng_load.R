@@ -21,4 +21,5 @@ print(paste0("Done... rows: ",ng[,.N]))
 
 print("Define functions...")
 source('ng.R')
+source('ng_predict_app.R')
 

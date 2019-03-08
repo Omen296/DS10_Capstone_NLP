@@ -6,6 +6,7 @@
 library(shiny)
 library(DT)
 library(data.table)
+library(stringr)
 
 # Load dictionary
 dic <- readRDS("dic.RDS")
@@ -15,5 +16,5 @@ setkey(dic,feature)
 ng <- readRDS("ngramTOP.RDS")
 setkey(ng,ngram_len,idx1,idx2,idx3,idx4,idx5)
 
-# Define functions
-source("ng.R")
+# Define function
+source("ng_predict_app.R")

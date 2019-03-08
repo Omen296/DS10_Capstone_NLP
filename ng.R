@@ -92,11 +92,17 @@ ng_predict <- function(phrase,remove_stopwords=FALSE,verbose=TRUE,choices=1,max_
 
 	if (remove_stopwords) {
 		tok <- tokens_remove(tok,stopwords("english"))
+		ng_lookup <- ng_nostop
+	} else {
+		ng_lookup <- ng
 	}
 
 	# Convert result to datatable and check there is valid sequence left
 	words <- as.data.table(as.character(tok))
 	colnames(words)<-"feature"
+
+	ng_log(verbose,"Tokens:")
+	ng_log(verbose,transpose(words))
 
 	num_words <- words[,.N]
 	if (max_length > 0 & num_words >= max_length)
@@ -125,13 +131,13 @@ ng_predict <- function(phrase,remove_stopwords=FALSE,verbose=TRUE,choices=1,max_
 
 		next_word_info <- switch(
 			i,
-			ng[ngram_len==2 & idx1==word_ids[1], 
+			ng_lookup[ngram_len==2 & idx1==word_ids[1], 
 				.(idx2,ngram_len,ngram_freq,ngram_prob,ngram_prob_rank)],
-			ng[ngram_len==3 & idx1==word_ids[2] & idx2==word_ids[1], 
+			ng_lookup[ngram_len==3 & idx1==word_ids[2] & idx2==word_ids[1], 
 				.(idx3,ngram_len,ngram_freq,ngram_prob,ngram_prob_rank)],
-			ng[ngram_len==4 & idx1==word_ids[3] & idx2==word_ids[2] & idx3==word_ids[1], 
+			ng_lookup[ngram_len==4 & idx1==word_ids[3] & idx2==word_ids[2] & idx3==word_ids[1], 
 				.(idx4,ngram_len,ngram_freq,ngram_prob,ngram_prob_rank)],
-			ng[ngram_len==5 & idx1==word_ids[4] & idx2==word_ids[3] & idx3==word_ids[2] & idx4==word_ids[1], 
+			ng_lookup[ngram_len==5 & idx1==word_ids[4] & idx2==word_ids[3] & idx3==word_ids[2] & idx4==word_ids[1], 
 				.(idx5,ngram_len,ngram_freq,ngram_prob,ngram_prob_rank)]
 
 		)

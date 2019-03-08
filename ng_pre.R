@@ -39,10 +39,12 @@ library(parallel)
 
 # Set up execution parameters here
 
-DIC_CDF_PCT		<- c(0.50,0.75,0.90,0.95,0.975,1.0)	# CDF levels to display
-DIC_CDF_PCT_CUTOFF	<- 0.95			# CDF cutoff level for final dictionary
-DTOP_MAX_RANK		<- 20			# How many rankings to include in TOP file
-DTOP_MIN_FREQ		<- 2			# Minimium freq to include in TOP file
+# CDF levels to display and prune dictionary
+DIC_CDF_PCT		<- c(0.50,0.75,0.90,0.95,0.96,0.97,0.975,0.98,0.99,1.0)	
+DIC_CDF_PCT_CUTOFF	<- 0.98		# CDF cutoff level for final dictionary
+
+DTOP_MAX_RANK		<- 5		# Default max rankings to include in TOP file
+DTOP_MIN_FREQ		<- 1		# Minimium freq to include in TOP file
 
 
 
@@ -55,11 +57,13 @@ ng_pre_corpus <- function(filenum_list,remove_stopwords=FALSE,min_ngrams=1,max_n
 	# Set threads
 	quanteda_options(threads=detectCores()-1)	
 
-	if (remove_stopwords) {
-		dicname <- "./dic_nostop.RDS"
-	} else {
-		dicname <- "./dic.RDS"
-	}
+#	if (remove_stopwords) {
+#		dicname <- "./dic_nostop.RDS"
+#	} else {
+#		dicname <- "./dic.RDS"
+#	}
+
+	dicname <- "./dic.RDS"
 	print(paste0("Loading dictionary ",dicname))
 	dic<-readRDS(dicname)
 	setkey(dic,feature)
@@ -230,7 +234,7 @@ ng_pre_merge <- function(filenum_list,remove_stopwords=FALSE) {
 }
 
 
-ng_pre_top <- function(remove_stopwords=FALSE) {
+ng_pre_top <- function(max_rank=DTOP_MAX_RANK, remove_stopwords=FALSE) {
 
 	# Calculate probabilities and ranking and then filter down to top results
 
@@ -261,7 +265,7 @@ ng_pre_top <- function(remove_stopwords=FALSE) {
 	dtn[order(base_id,-ngram_prob),ngram_prob_rank := 1:.N,by=base_id]
 
 	setkey(dtn,ngram_prob_rank,ngram_freq)
-	dtop<-dtn[ (ngram_prob_rank <= DTOP_MAX_RANK) & (ngram_freq >=DTOP_MIN_FREQ),
+	dtop<-dtn[ (ngram_prob_rank <= max_rank) & (ngram_freq >=DTOP_MIN_FREQ),
 			.(ngram_len,idx1,idx2,idx3,idx4,idx5,ngram_freq,base_freq,ngram_prob,ngram_prob_rank)]
 	setkey(dtop,ngram_len,idx1,idx2,idx3,idx4,idx5)
 	
@@ -289,10 +293,11 @@ ng_pre_dic <- function(filenum_list,remove_stopwords=FALSE) {
 	quanteda_options(threads=detectCores()-1)
 
 	if (remove_stopwords) {
-		dicname <- "./dic_nostop.RDS"
+		dicname     <- "./dic_nostop.RDS"
 	} else {
-		dicname <- "./dic.RDS"
+		dicname     <- "./dic.RDS"
 	}
+	dicname_all <- "./dic_all.RDS"
 	filenames <- paste0("./corpus_split/corpus",filenum_list,".txt")
 
 	print("Reading filenames:")
@@ -306,7 +311,7 @@ ng_pre_dic <- function(filenum_list,remove_stopwords=FALSE) {
 
 	if (remove_stopwords) {
 
-		# Two-step process to generate tokens, strip stopwords and then generate n-grams
+		# Two-step process to generate tokens, strip stopwords
 		tok <- tokens_remove( 
 					tokens(char_tolower(tx$text),
 						remove_symbols=TRUE,
@@ -356,8 +361,13 @@ ng_pre_dic <- function(filenum_list,remove_stopwords=FALSE) {
 	
 	print(paste0("Saving... Features: ",dic_cutoff[,.N]," out of ",dic[,.N]))
 
-	# Dump to file and cleanup
+	# Dump to file
 	saveRDS(dic_cutoff,dicname)
+
+	# Dump all words to file
+	saveRDS(dic,dicname_all)
+
+	# Cleanup
 	gc()
 
 	print("Done")
