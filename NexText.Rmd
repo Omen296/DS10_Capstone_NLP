@@ -212,3 +212,9 @@ table3 %>% kable(
 Link to widget:
 
 https://ringspagit.shinyapps.io/NexText/
+
+
+Link to github:
+
+https://github.com/ringspagit/DS10_Capstone_NLP
+
