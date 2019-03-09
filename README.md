@@ -25,6 +25,7 @@ Shiny App Deck: https://ringspagit.github.io/DS10_Capstone_NLP/NexText.html
 * **ng_predict_app.R:**
     + **ng_predict_app()** 	returns table or list of top predictions, minimal code for shiny
 
+---
 Testing Scripts:
 
 * ng.R:
@@ -33,3 +34,12 @@ Testing Scripts:
     + wk4_test() 		runs the test predictions for Week 4 Quiz
 * ng_load_nostopR
     + Setup fresh R session with _nostop versions of models.  Used for testing but not final app.
+
+---
+**Resources:**
+
+* Benchmarking	https://github.com/hfoffani/dsci-benchmark
+
+* N-Gram Paper	https://lagunita.stanford.edu/c4x/Engineering/CS-224N/asset/slp4.pdf
+
+* Quanteda	https://github.com/rstudio/cheatsheets/raw/master/quanteda.pdf
