@@ -1,0 +1,20 @@
+0.95 CDF 20205 words, top 5 N-Grams, freq >= 1 ng_predict_app() - rerun with clean memory
+
+Overall top-3 score:     18.37 %
+Overall top-1 precision: 13.90 %
+Overall top-3 precision: 22.27 %
+Average runtime:         33.68 msec
+Number of predictions:   28464
+Total memory used:       404.23 MB
+
+Dataset details
+ Dataset "blogs" (599 lines, 14587 words, hash 14b3c593e543eb8b2932cf00b646ed653e336897a03c82098b725e6e1f9b7aa2)
+  Score: 17.79 %, Top-1 precision: 13.15 %, Top-3 precision: 21.90 %
+ Dataset "tweets" (793 lines, 14071 words, hash 7fa3bf921c393fe7009bc60971b2bb8396414e7602bb4f409bed78c7192c30f4)
+  Score: 18.95 %, Top-1 precision: 14.65 %, Top-3 precision: 22.64 %
+
+
+R version 3.5.1 (2018-07-02), platform x86_64-apple-darwin15.6.0 (64-bit)
+Attached non-base packages:   stringi (v1.2.4), digest (v0.6.16), quanteda (v1.4.0), data.table (v1.11.8)
+Unattached non-base packages: Rcpp (v0.12.18), bindr (v0.1.1), magrittr (v1.5), stopwords (v0.9.0), tidyselect (v0.2.4), munsell (v0.5.0), colorspace (v1.3-2), lattice (v0.20-35), R6 (v2.2.2), rlang (v0.3.1), fastmatch (v1.1-0), stringr (v1.3.1), plyr (v1.8.4), dplyr (v0.7.6), tools (v3.5.1), grid (v3.5.1), gtable (v0.2.0), spacyr (v1.0), RcppParallel (v4.4.2), lazyeval (v0.2.1), assertthat (v0.2.0), tibble (v1.4.2), crayon (v1.3.4), Matrix (v1.2-14), bindrcpp (v0.2.2), purrr (v0.2.5), ggplot2 (v3.1.0), glue (v1.3.0), compiler (v3.5.1), pillar (v1.3.0), scales (v1.0.0), lubridate (v1.7.4), pkgconfig (v2.0.2)
+
