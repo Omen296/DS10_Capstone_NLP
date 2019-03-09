@@ -11,7 +11,7 @@ Shiny App: https://ringspagit.shinyapps.io/NexText/
 Shiny App Deck: https://ringspagit.github.io/DS10_Capstone_NLP/NexText.html
 
 ---
-Working Scripts / Functions:
+**Final Working Scripts / Functions:**
 
 * **proc_corpus_split()**
     + Randomly splits the 3 corpus docs into 10 output files
@@ -21,10 +21,15 @@ Working Scripts / Functions:
     + **ng_pre_merge()**	merges the corpus n-gram files into MASTER file
     + **ng_pre_top()**		create TOP file with basic prob/ranks, pruned by rank & freq
 * **ng_load.R:**
-    + Setup fresh R session to run model: Loads dic and ng datatables, sources **ng.R**
+    + Setup fresh R session to run model: Loads dic and ng datatables, sources ng.R and **ng_predict_app.R**
 * **ng_predict_app.R:**
     + **ng_predict_app()** 	returns table or list of top predictions, minimal code for shiny
-* **ng.R:**
-    + **ng_predict()**		returns singular (top) prediction for phrase - old version with logging
-    + **wk3_test()**		runs the test predictions for Week 3 Quiz
-    + **wk4_test()** 		runs the test predictions for Week 4 Quiz
+
+Testing Scripts:
+
+* ng.R:
+    + ng_predict()		returns singular (top) prediction for phrase - old version with logging
+    + wk3_test()		runs the test predictions for Week 3 Quiz
+    + wk4_test() 		runs the test predictions for Week 4 Quiz
+* ng_load_nostopR
+    + Setup fresh R session with _nostop versions of models.  Used for testing but not final app.
