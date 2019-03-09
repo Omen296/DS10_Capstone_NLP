@@ -20,3 +20,8 @@ File description:
 * **benchmark.R** Script needed to perform the benchmark (see above).
 * **generate_dataset.R** Script used to generate the benchmark datasets (this should not be re-run and is provided for reference only)
 
+Changes for this project:
+-------------------------
+
+* **benchmark_setup.R** Define functions, add hook for NexText ng_predict_app()
+* **benchmark_run.R** Just the code to run the benchmark
