@@ -88,7 +88,7 @@ ng_predict_app <- function(phrase,choices=1,max_length=0,max_ngram=5) {
 
                 # Return data table with top # of choices
                 next_word_res[order(-ngram_len,ngram_prob_rank)][
-                        1:choices,.(next_word,ngram_len,ngram_freq,round(ngram_prob,5),ngram_prob_rank)]
+                        1:choices,.(next_word,ngram_len,ngram_freq,ngram_prob=round(ngram_prob,5),ngram_prob_rank)]
         }
 	
 }
