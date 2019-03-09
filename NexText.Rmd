@@ -51,7 +51,7 @@ table1 <- data.table(c(1:7),
                   "N-Grams with n=1:5 generated using Quanteda, and N-gram string deconstructed to a sequence of index lookups against the dictionary for each word, to reduce memory required.  Only N-grams consisting of valid dictionary lookups are retained.",
                   "Calculate estimated probability for each N-gram using Maximum Likelihood Estimation approach i.e. the observed frequency of the N-gram divided by the observed frequency of its prefix (N-1 words).",
                   "Prune final population by removing all N-grams with frequency 1 (which significantly reduces the high volume of higher complexity N-grams), and only retain top 5 ranked N-grams.",
-                  "All processing is performed using Data Tables, with final output files dic.RDS (336kb) and ngramTOP.RDS (56mb) deployed with the shiny app."
+                  "All processing is performed using Data Tables, with final output files for dictionary (dic.RDS - 336kb) and N-gram rankings (ngramTOP.RDS - 56mb) deployed with the shiny app."
                 )
 )
 
@@ -127,7 +127,7 @@ ngresults %>% kable(
                               latex_options = "hold_position",
                               full_width=F,position='center') %>%
                 row_spec(c(0,6),bold=T) %>%
-                column_spec(c(1:4),border_right=T,border_left=T,width="15em")
+                column_spec(c(1:4),border_right=T,border_left=T,width="13em")
 ```
 
 
@@ -137,8 +137,8 @@ The function **ng_predict_app()** takes a phrase and returns either a list of pr
 
 ```{r method2_table}
 table2 <- data.table(c(1:6),
-                c("Scrub phrase using the same Quanteda functions as the N-gram processing i.e. convert to lower case, and remove symbols, punctuation, twitter, numbers and URLs",
-                  "Convert phrase to list of dictionary IDs to facilitate N-gram lookup",
+                c("Scrub the given phrase using the same Quanteda functions as the N-gram processing i.e. convert to lower case, and remove symbols, punctuation, twitter, numbers and URLs",
+                  "Convert scrubbed phrase to list of dictionary IDs to facilitate N-gram lookup",
                   "Build results table for N-grams for n=5,4,3,2,1 (starting less than 5, if given phrase is shorter than 4 words); for each n, the associated prefix {n-1} words are looked up in the N-gram file, to select all suggestions for the nth word",
                   "For Unigrams (n=1) which have no prefix, the result will be the top 5 words (the,to,and,a,of) as default",
                   "The results are sorted by decreasing N-gram length, then increasing rank (i.e. highest probability first)",
@@ -164,6 +164,9 @@ ng_predict_app("from the bottom of my",choices=-3)      # choices < 0 returns li
 
 
 ## NexText App
+```{r widget_screenshot, out.width = "800px", fig.align="center"}
+include_graphics("NexText.png")
+```
 
 Typing a phrase automatically generates a prediction and adds it to a display of the complete sentence.
 
@@ -172,10 +175,6 @@ Clicking **Walk** will accept the current top prediction and get the next predic
 Clicking a suggestion in the grid will use that word instead of the top prediction, and get the next prediction.
 
 Clicking **Run** will automatically generate words, up to the maximum number of words set by the slider on the left.
-
-```{r widget_screenshot, out.width = "800px", fig.align="center"}
-include_graphics("NexText.png")
-```
 
 ## NexText App Functionality
 
