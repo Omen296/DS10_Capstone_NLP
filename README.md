@@ -8,6 +8,8 @@ Week 2 Analysis Report: https://ringspagit.github.io/DS10_Capstone_NLP/CapstoneW
 
 Shiny App: https://ringspagit.shinyapps.io/NexText/
 
+Shiny App Deck: https://ringspagit.github.io/DS10_Capstone_NLP/NexText.html
+
 ---
 Working Scripts / Functions:
 
